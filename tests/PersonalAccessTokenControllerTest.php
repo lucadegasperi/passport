@@ -38,6 +38,7 @@ class PersonalAccessTokenControllerTest extends TestCase
 
         $request->setUserResolver(function () use ($token1, $token2) {
             $user = m::mock();
+            $user->shouldReceive('getMorphClass')->andReturn('users');
             $user->shouldReceive('getKey')->andReturn(1);
 
             return $user;

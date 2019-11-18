@@ -75,9 +75,9 @@ class Token extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphTo
      */
-    public function owner()
+    public function user()
     {
-        return $this->morphTo('owner');
+        return $this->morphTo('user');
     }
 
     /**

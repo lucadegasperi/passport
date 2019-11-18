@@ -28,8 +28,8 @@ class BridgeAccessTokenRepositoryTest extends TestCase
 
         $tokenRepository->shouldReceive('create')->once()->andReturnUsing(function ($array) use ($expiration) {
             $this->assertEquals(1, $array['id']);
-            $this->assertEquals('users', $array['owner_type']);
-            $this->assertEquals(2, $array['owner_id']);
+            $this->assertEquals('users', $array['user_type']);
+            $this->assertEquals(2, $array['user_id']);
             $this->assertEquals('client-id', $array['client_id']);
             $this->assertEquals(['scopes'], $array['scopes']);
             $this->assertEquals(false, $array['revoked']);
@@ -40,7 +40,7 @@ class BridgeAccessTokenRepositoryTest extends TestCase
 
         $events->shouldReceive('dispatch')->once();
 
-        $accessToken = new AccessToken('users-2', [new Scope('scopes')], new Client('client-id', 'name', 'redirect'));
+        $accessToken = new AccessToken('users#2', [new Scope('scopes')], new Client('client-id', 'name', 'redirect'));
         $accessToken->setIdentifier(1);
         $accessToken->setExpiryDateTime($expiration);
 

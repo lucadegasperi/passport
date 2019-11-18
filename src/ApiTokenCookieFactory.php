@@ -40,12 +40,12 @@ class ApiTokenCookieFactory
     /**
      * Create a new API token cookie.
      *
-     * @param  mixed  $ownerType
-     * @param  mixed  $ownerId
+     * @param  mixed  $userType
+     * @param  mixed  $userId
      * @param  string  $csrfToken
      * @return \Symfony\Component\HttpFoundation\Cookie
      */
-    public function make($ownerType, $ownerId, $csrfToken)
+    public function make($userType, $userId, $csrfToken)
     {
         $config = $this->config->get('session');
 
@@ -53,7 +53,7 @@ class ApiTokenCookieFactory
 
         return new Cookie(
             Passport::cookie(),
-            $this->createToken($ownerType, $ownerId, $csrfToken, $expiration),
+            $this->createToken($userType, $userId, $csrfToken, $expiration),
             $expiration,
             $config['path'],
             $config['domain'],
@@ -67,16 +67,16 @@ class ApiTokenCookieFactory
     /**
      * Create a new JWT token for the given user ID and CSRF token.
      *
-     * @param  mixed  $ownerType
-     * @param  mixed  $ownerId
+     * @param  mixed  $userType
+     * @param  mixed  $userId
      * @param  string  $csrfToken
      * @param  \Carbon\Carbon  $expiration
      * @return string
      */
-    protected function createToken($ownerType, $ownerId, $csrfToken, Carbon $expiration)
+    protected function createToken($userType, $userId, $csrfToken, Carbon $expiration)
     {
         return JWT::encode([
-            'sub' => $ownerType . '-' . $ownerId,
+            'sub' => $userType . '-' . $userId,
             'csrf' => $csrfToken,
             'expiry' => $expiration->getTimestamp(),
         ], $this->encrypter->getKey());

@@ -32,38 +32,38 @@ class TokenRepository
      * Get a token by the given user ID and token ID.
      *
      * @param  string  $id
-     * @param  string  $ownerType
-     * @param  int  $ownerId
+     * @param  string  $userType
+     * @param  int  $userId
      * @return \Laravel\Passport\Token|null
      */
-    public function findForUser($id, $ownerType, $ownerId)
+    public function findForUser($id, $userType, $userId)
     {
-        return Passport::token()->where('id', $id)->where('owner_type', $ownerType)->where('owner_id', $ownerId)->first();
+        return Passport::token()->where('id', $id)->where('user_type', $userType)->where('user_id', $userId)->first();
     }
 
     /**
      * Get the token instances for the given user ID.
      *
-     * @param  mixed  $ownerType
-     * @param  mixed  $ownerId
+     * @param  mixed  $userType
+     * @param  mixed  $userId
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function forOwner($ownerType, $ownerId)
+    public function forUser($userType, $userId)
     {
-        return Passport::token()->where('owner_type', $ownerType)->where('owner_id', $ownerId)->get();
+        return Passport::token()->where('user_type', $userType)->where('user_id', $userId)->get();
     }
 
     /**
      * Get a valid token instance for the given user and client.
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $owner
+     * @param  \Illuminate\Database\Eloquent\Model  $user
      * @param  \Laravel\Passport\Client  $client
      * @return \Laravel\Passport\Token|null
      */
-    public function getValidToken($owner, $client)
+    public function getValidToken($user, $client)
     {
         return $client->tokens()
-                    ->whereOwner($owner)
+                    ->whereUser($user)
                     ->where('revoked', 0)
                     ->where('expires_at', '>', Carbon::now())
                     ->first();
@@ -110,14 +110,14 @@ class TokenRepository
     /**
      * Find a valid token for the given user and client.
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $owner
+     * @param  \Illuminate\Database\Eloquent\Model  $user
      * @param  \Laravel\Passport\Client  $client
      * @return \Laravel\Passport\Token|null
      */
-    public function findValidToken($owner, $client)
+    public function findValidToken($user, $client)
     {
         return $client->tokens()
-                      ->whereOwner($owner)
+                      ->whereUser($user)
                       ->where('revoked', 0)
                       ->where('expires_at', '>', Carbon::now())
                       ->latest('expires_at')

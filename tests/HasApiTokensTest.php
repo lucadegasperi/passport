@@ -43,6 +43,11 @@ class HasApiTokensTestStub
 {
     use HasApiTokens;
 
+    public function getMorphClass()
+    {
+        return 'users';
+    }
+
     public function getKey()
     {
         return 1;

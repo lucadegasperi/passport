@@ -120,6 +120,7 @@ class ClientControllerTest extends TestCase
 
         $request->setUserResolver(function () {
             $user = m::mock();
+            $user->shouldReceive('getMorphClass')->andReturn('users');
             $user->shouldReceive('getKey')->andReturn(1);
 
             return $user;
@@ -157,6 +158,7 @@ class ClientControllerTest extends TestCase
 
         $request->setUserResolver(function () {
             $user = m::mock();
+            $user->shouldReceive('getMorphClass')->andReturn('users');
             $user->shouldReceive('getKey')->andReturn(1);
 
             return $user;
@@ -183,6 +185,7 @@ class ClientControllerTest extends TestCase
 
         $request->setUserResolver(function () {
             $user = m::mock();
+            $user->shouldReceive('getMorphClass')->andReturn('users');
             $user->shouldReceive('getKey')->andReturn(1);
 
             return $user;
@@ -212,6 +215,7 @@ class ClientControllerTest extends TestCase
 
         $request->setUserResolver(function () {
             $user = m::mock();
+            $user->shouldReceive('getMorphClass')->andReturn('users');
             $user->shouldReceive('getKey')->andReturn(1);
 
             return $user;
@@ -232,6 +236,11 @@ class ClientControllerTest extends TestCase
 class ClientControllerFakeUser
 {
     public $id = 1;
+
+    public function getMorphClass()
+    {
+        return 'users';
+    }
 
     public function getKey()
     {

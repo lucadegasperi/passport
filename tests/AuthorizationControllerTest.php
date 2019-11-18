@@ -113,6 +113,7 @@ class AuthorizationControllerTest extends TestCase
 
         $request = m::mock(Request::class);
         $request->shouldReceive('user')->once()->andReturn($user = m::mock());
+        $user->shouldReceive('getMorphClass')->andReturn('users');
         $user->shouldReceive('getKey')->andReturn(1);
         $request->shouldNotReceive('session');
 
@@ -155,6 +156,7 @@ class AuthorizationControllerTest extends TestCase
 
         $request = m::mock(Request::class);
         $request->shouldReceive('user')->once()->andReturn($user = m::mock());
+        $user->shouldReceive('getMorphClass')->andReturn('users');
         $user->shouldReceive('getKey')->andReturn(1);
         $request->shouldNotReceive('session');
 

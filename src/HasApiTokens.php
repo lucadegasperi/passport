@@ -30,7 +30,7 @@ trait HasApiTokens
      */
     public function tokens()
     {
-        return $this->hasMany(Passport::tokenModel(), 'user_id')->orderBy('created_at', 'desc');
+        return $this->morphMany(Passport::tokenModel(), 'owner')->orderBy('created_at', 'desc');
     }
 
     /**

@@ -51,6 +51,11 @@ class ApproveAuthorizationControllerFakeUser
 {
     public $id = 1;
 
+    public function getMorphClass()
+    {
+        return 'users';
+    }
+
     public function getKey()
     {
         return $this->id;

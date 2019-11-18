@@ -23,7 +23,7 @@ class CheckClientCredentialsForAnyScopeTest extends TestCase
     {
         $resourceServer = m::mock(ResourceServer::class);
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
         $psr->shouldReceive('getAttribute')->with('oauth_client_id')->andReturn(1);
         $psr->shouldReceive('getAttribute')->with('oauth_access_token_id')->andReturn('token');
         $psr->shouldReceive('getAttribute')->with('oauth_scopes')->andReturn(['*']);
@@ -54,7 +54,7 @@ class CheckClientCredentialsForAnyScopeTest extends TestCase
     {
         $resourceServer = m::mock(ResourceServer::class);
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
         $psr->shouldReceive('getAttribute')->with('oauth_client_id')->andReturn(1);
         $psr->shouldReceive('getAttribute')->with('oauth_access_token_id')->andReturn('token');
         $psr->shouldReceive('getAttribute')->with('oauth_scopes')->andReturn(['foo', 'bar', 'baz']);
@@ -111,7 +111,7 @@ class CheckClientCredentialsForAnyScopeTest extends TestCase
     {
         $resourceServer = m::mock(ResourceServer::class);
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
         $psr->shouldReceive('getAttribute')->with('oauth_client_id')->andReturn(1);
         $psr->shouldReceive('getAttribute')->with('oauth_access_token_id')->andReturn('token');
         $psr->shouldReceive('getAttribute')->with('oauth_scopes')->andReturn(['foo', 'bar']);
@@ -145,7 +145,7 @@ class CheckClientCredentialsForAnyScopeTest extends TestCase
     {
         $resourceServer = m::mock(ResourceServer::class);
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
         $psr->shouldReceive('getAttribute')->with('oauth_client_id')->andReturn(1);
         $psr->shouldReceive('getAttribute')->with('oauth_access_token_id')->andReturn('token');
         $psr->shouldReceive('getAttribute')->with('oauth_scopes')->andReturn(['*']);

@@ -14,6 +14,7 @@ use Laravel\Passport\Guards\TokenGuard;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Passport\Passport;
 use Laravel\Passport\TokenRepository;
+use Laravel\Passport\UserProviderResolver;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\ResourceServer;
 use Mockery as m;
@@ -30,20 +31,22 @@ class TokenGuardTest extends TestCase
     public function test_user_can_be_pulled_via_bearer_token()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
 
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
         $psr->shouldReceive('getAttribute')->with('oauth_client_id')->andReturn(1);
         $psr->shouldReceive('getAttribute')->with('oauth_access_token_id')->andReturn('token');
+        $userProviderResolver->shouldReceive('resolve')->with('users-1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('users-1')->andReturn(1);
         $userProvider->shouldReceive('retrieveById')->with(1)->andReturn(new TokenGuardTestUser);
         $tokens->shouldReceive('find')->once()->with('token')->andReturn($token = m::mock());
         $clients->shouldReceive('revoked')->with(1)->andReturn(false);
@@ -62,12 +65,12 @@ class TokenGuardTest extends TestCase
         $handler->shouldReceive('report')->once()->with(m::type(OAuthServerException::class));
 
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
@@ -85,18 +88,20 @@ class TokenGuardTest extends TestCase
     public function test_null_is_returned_if_no_user_is_found()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
 
         $resourceServer->shouldReceive('validateAuthenticatedRequest')->andReturn($psr = m::mock());
-        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn(1);
+        $psr->shouldReceive('getAttribute')->with('oauth_user_id')->andReturn('users-1');
+        $userProviderResolver->shouldReceive('resolve')->with('users-1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('users-1')->andReturn(1);
         $userProvider->shouldReceive('retrieveById')->with(1)->andReturn(null);
 
         $this->assertNull($guard->user($request));
@@ -105,24 +110,56 @@ class TokenGuardTest extends TestCase
     public function test_users_may_be_retrieved_from_cookies_with_csrf_token_header()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-CSRF-TOKEN', 'token');
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)), false)
         );
 
+        $userProviderResolver->shouldReceive('resolve')->with('users-1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('users-1')->andReturn(1);
+        $userProvider->shouldReceive('retrieveById')->with(1)->andReturn($expectedUser = new TokenGuardTestUser);
+
+        $user = $guard->user($request);
+
+        $this->assertEquals($expectedUser, $user);
+    }
+
+    public function test_default_provider_is_used_to_retreive_users_from_cookies_with_csrf_token_header()
+    {
+        $resourceServer = m::mock(ResourceServer::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
+        $tokens = m::mock(TokenRepository::class);
+        $clients = m::mock(ClientRepository::class);
+        $encrypter = new Encrypter(str_repeat('a', 16));
+
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
+
+        $request = Request::create('/');
+        $request->headers->set('X-CSRF-TOKEN', 'token');
+        $request->cookies->set('laravel_token',
+            $encrypter->encrypt(JWT::encode([
+                'sub' => '1',
+                'aud' => 1,
+                'csrf' => 'token',
+                'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
+            ], str_repeat('a', 16)), false)
+        );
+
+        $userProviderResolver->shouldReceive('resolve')->with('1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('1')->andReturn(1);
         $userProvider->shouldReceive('retrieveById')->with(1)->andReturn($expectedUser = new TokenGuardTestUser);
 
         $user = $guard->user($request);
@@ -133,24 +170,26 @@ class TokenGuardTest extends TestCase
     public function test_users_may_be_retrieved_from_cookies_with_xsrf_token_header()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-XSRF-TOKEN', $encrypter->encrypt('token', false));
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)), false)
         );
 
+        $userProviderResolver->shouldReceive('resolve')->with('users-1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('users-1')->andReturn(1);
         $userProvider->shouldReceive('retrieveById')->with(1)->andReturn($expectedUser = new TokenGuardTestUser);
 
         $user = $guard->user($request);
@@ -161,25 +200,25 @@ class TokenGuardTest extends TestCase
     public function test_cookie_xsrf_is_verified_against_csrf_token_header()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-CSRF-TOKEN', 'wrong_token');
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)))
         );
 
-        $userProvider->shouldReceive('retrieveById')->never();
+        $userProviderResolver->shouldReceive('resolve')->never();
 
         $this->assertNull($guard->user($request));
     }
@@ -187,25 +226,25 @@ class TokenGuardTest extends TestCase
     public function test_cookie_xsrf_is_verified_against_xsrf_token_header()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-XSRF-TOKEN', $encrypter->encrypt('wrong_token', false));
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)))
         );
 
-        $userProvider->shouldReceive('retrieveById')->never();
+        $userProviderResolver->shouldReceive('resolve')->never();
 
         $this->assertNull($guard->user($request));
     }
@@ -213,25 +252,25 @@ class TokenGuardTest extends TestCase
     public function test_xsrf_token_cookie_without_a_token_header_is_not_accepted()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->cookies->set('XSRF-TOKEN', $encrypter->encrypt('token', false));
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)))
         );
 
-        $userProvider->shouldReceive('retrieveById')->never();
+        $userProviderResolver->shouldReceive('resolve')->never();
 
         $this->assertNull($guard->user($request));
     }
@@ -239,25 +278,25 @@ class TokenGuardTest extends TestCase
     public function test_expired_cookies_may_not_be_used()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-CSRF-TOKEN', 'token');
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->subMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)))
         );
 
-        $userProvider->shouldReceive('retrieveById')->never();
+        $userProviderResolver->shouldReceive('retrieveById')->never();
 
         $this->assertNull($guard->user($request));
     }
@@ -265,24 +304,27 @@ class TokenGuardTest extends TestCase
     public function test_csrf_check_can_be_disabled()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         Passport::ignoreCsrfToken();
 
         $request = Request::create('/');
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),
             ], str_repeat('a', 16)), false)
         );
 
+
+        $userProviderResolver->shouldReceive('resolve')->with('users-1')->andReturn($userProvider = m::mock(UserProvider::class));
+        $userProviderResolver->shouldReceive('getUsername')->with('users-1')->andReturn(1);
         $userProvider->shouldReceive('retrieveById')->with(1)->andReturn($expectedUser = new TokenGuardTestUser);
 
         $user = $guard->user($request);
@@ -293,12 +335,12 @@ class TokenGuardTest extends TestCase
     public function test_client_can_be_pulled_via_bearer_token()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
@@ -320,12 +362,12 @@ class TokenGuardTest extends TestCase
         $handler->shouldReceive('report')->once()->with(m::type(OAuthServerException::class));
 
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
@@ -343,12 +385,12 @@ class TokenGuardTest extends TestCase
     public function test_null_is_returned_if_no_client_is_found()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = m::mock(Encrypter::class);
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('Authorization', 'Bearer token');
@@ -363,18 +405,18 @@ class TokenGuardTest extends TestCase
     public function test_clients_may_be_retrieved_from_cookies()
     {
         $resourceServer = m::mock(ResourceServer::class);
-        $userProvider = m::mock(UserProvider::class);
+        $userProviderResolver = m::mock(UserProviderResolver::class);
         $tokens = m::mock(TokenRepository::class);
         $clients = m::mock(ClientRepository::class);
         $encrypter = new Encrypter(str_repeat('a', 16));
 
-        $guard = new TokenGuard($resourceServer, $userProvider, $tokens, $clients, $encrypter);
+        $guard = new TokenGuard($resourceServer, $userProviderResolver, $tokens, $clients, $encrypter);
 
         $request = Request::create('/');
         $request->headers->set('X-CSRF-TOKEN', 'token');
         $request->cookies->set('laravel_token',
             $encrypter->encrypt(JWT::encode([
-                'sub' => 1,
+                'sub' => 'users-1',
                 'aud' => 1,
                 'csrf' => 'token',
                 'expiry' => Carbon::now()->addMinutes(10)->getTimestamp(),

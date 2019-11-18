@@ -23,9 +23,11 @@ class AuthCodeRepository implements AuthCodeRepositoryInterface
      */
     public function persistNewAuthCode(AuthCodeEntityInterface $authCodeEntity)
     {
+        $ownerIdentifier = explode('-', $authCodeEntity->getUserIdentifier());
         $attributes = [
             'id' => $authCodeEntity->getIdentifier(),
-            'user_id' => $authCodeEntity->getUserIdentifier(),
+            'owner_type' => $ownerIdentifier[0],
+            'owner_id' => $ownerIdentifier[1],
             'client_id' => $authCodeEntity->getClient()->getIdentifier(),
             'scopes' => $this->formatScopesForStorage($authCodeEntity->getScopes()),
             'revoked' => false,

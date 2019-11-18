@@ -6,6 +6,7 @@ use DateTime;
 use Illuminate\Contracts\Events\Dispatcher;
 use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\TokenRepository;
+use Laravel\Passport\UserProviderResolver;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
@@ -29,15 +30,21 @@ class AccessTokenRepository implements AccessTokenRepositoryInterface
     protected $events;
 
     /**
+     * @var UserProviderResolver
+     */
+    protected $resolver;
+
+    /**
      * Create a new repository instance.
      *
      * @param  \Laravel\Passport\TokenRepository  $tokenRepository
      * @param  \Illuminate\Contracts\Events\Dispatcher  $events
      */
-    public function __construct(TokenRepository $tokenRepository, Dispatcher $events)
+    public function __construct(TokenRepository $tokenRepository, Dispatcher $events, UserProviderResolver $resolver)
     {
         $this->events = $events;
         $this->tokenRepository = $tokenRepository;
+        $this->resolver = $resolver;
     }
 
     /**
@@ -53,11 +60,10 @@ class AccessTokenRepository implements AccessTokenRepositoryInterface
      */
     public function persistNewAccessToken(AccessTokenEntityInterface $accessTokenEntity)
     {
-        $ownerIdentifier = explode('-', $accessTokenEntity->getUserIdentifier());
         $this->tokenRepository->create([
             'id' => $accessTokenEntity->getIdentifier(),
-            'owner_type' => $ownerIdentifier[0],
-            'owner_id' => $ownerIdentifier[1],
+            'owner_type' => $this->resolver->getProvider($accessTokenEntity->getUserIdentifier()),
+            'owner_id' => $this->resolver->getUsername($accessTokenEntity->getUserIdentifier()),
             'client_id' => $accessTokenEntity->getClient()->getIdentifier(),
             'scopes' => $this->scopesToArray($accessTokenEntity->getScopes()),
             'revoked' => false,

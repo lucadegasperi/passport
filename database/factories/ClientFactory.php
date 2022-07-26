@@ -30,6 +30,7 @@ class ClientFactory extends Factory
             'redirect' => $this->faker->url(),
             'personal_access_client' => false,
             'password_client' => false,
+            'device_client' => false,
             'revoked' => false,
         ]);
     }

@@ -104,6 +104,14 @@ class ClientCommand extends Command
             in_array('users', $providers) ? 'users' : null
         );
 
+        $providers = array_keys(config('auth.providers'));
+
+        $provider = $this->option('provider') ?: $this->choice(
+            'Which user provider should this client use to retrieve users?',
+            $providers,
+            in_array('users', $providers) ? 'users' : null
+        );
+
         $client = $clients->createPasswordGrantClient(
             null, $name, 'http://localhost', $provider
         );
@@ -144,7 +152,7 @@ class ClientCommand extends Command
     protected function createAuthCodeClient(ClientRepository $clients)
     {
         $userId = $this->option('user_id') ?: $this->ask(
-            'Which user ID should the client be assigned to?'
+            'Which user ID should the client be assigned to? (Optional)'
         );
 
         $name = $this->option('name') ?: $this->ask(
@@ -208,7 +216,7 @@ class ClientCommand extends Command
             $this->line('');
         }
 
-        $this->line('<comment>Client ID:</comment> '.$client->id);
+        $this->line('<comment>Client ID:</comment> '.$client->getKey());
         $this->line('<comment>Client secret:</comment> '.$client->plainSecret);
     }
 }

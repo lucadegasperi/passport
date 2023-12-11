@@ -6,7 +6,8 @@ use Carbon\Carbon;
 use DateInterval;
 use DateTimeInterface;
 use Illuminate\Contracts\Encryption\Encrypter;
-use Illuminate\Support\Facades\Route;
+use Laravel\Passport\Contracts\AuthorizationViewResponse as AuthorizationViewResponseContract;
+use Laravel\Passport\Http\Responses\AuthorizationViewResponse;
 use League\OAuth2\Server\ResourceServer;
 use Mockery;
 use Psr\Http\Message\ServerRequestInterface;
@@ -37,15 +38,6 @@ class Passport
     ];
 
     /**
-     * The date when access tokens expire.
-     *
-     * @var \DateTimeInterface|null
-     *
-     * @deprecated Will be removed in the next major Passport release.
-     */
-    public static $tokensExpireAt;
-
-    /**
      * The interval when access tokens expire.
      *
      * @var \DateInterval|null
@@ -55,27 +47,9 @@ class Passport
     /**
      * The date when refresh tokens expire.
      *
-     * @var \DateTimeInterface|null
-     *
-     * @deprecated Will be removed in the next major Passport release.
-     */
-    public static $refreshTokensExpireAt;
-
-    /**
-     * The date when refresh tokens expire.
-     *
      * @var \DateInterval|null
      */
     public static $refreshTokensExpireIn;
-
-    /**
-     * The date when personal access tokens expire.
-     *
-     * @var \DateTimeInterface|null
-     *
-     * @deprecated Will be removed in the next major Passport release.
-     */
-    public static $personalAccessTokensExpireAt;
 
     /**
      * The date when personal access tokens expire.
@@ -104,6 +78,13 @@ class Passport
      * @var string
      */
     public static $keyPath;
+
+    /**
+     * The access token entity class name.
+     *
+     * @var string
+     */
+    public static $accessTokenEntity = 'Laravel\Passport\Bridge\AccessToken';
 
     /**
      * The auth code model class name.
@@ -172,6 +153,13 @@ class Passport
     public static $unserializesCookies = false;
 
     /**
+     * Indicates if Passport should decrypt cookies.
+     *
+     * @var bool
+     */
+    public static $decryptsCookies = true;
+
+    /**
      * Indicates if client secrets will be hashed.
      *
      * @var bool
@@ -200,6 +188,13 @@ class Passport
     public static $authorizationServerResponseType;
 
     /**
+     * Indicates if Passport routes will be registered.
+     *
+     * @var bool
+     */
+    public static $registersRoutes = true;
+
+    /**
      * Enable the implicit grant type.
      *
      * @return static
@@ -209,31 +204,6 @@ class Passport
         static::$implicitGrantEnabled = true;
 
         return new static;
-    }
-
-    /**
-     * Binds the Passport routes into the controller.
-     *
-     * @param  callable|null  $callback
-     * @param  array  $options
-     * @return void
-     */
-    public static function routes($callback = null, array $options = [])
-    {
-        $callback = $callback ?: function ($router) {
-            $router->all();
-        };
-
-        $defaultOptions = [
-            'prefix' => 'oauth',
-            'namespace' => '\Laravel\Passport\Http\Controllers',
-        ];
-
-        $options = array_merge($defaultOptions, $options);
-
-        Route::group($options, function ($router) use ($callback) {
-            $callback(new RouteRegistrar($router));
-        });
     }
 
     /**
@@ -318,7 +288,6 @@ class Passport
             return static::$tokensExpireIn ?? new DateInterval('P1Y');
         }
 
-        static::$tokensExpireAt = $date;
         static::$tokensExpireIn = Carbon::now()->diff($date);
 
         return new static;
@@ -336,7 +305,6 @@ class Passport
             return static::$refreshTokensExpireIn ?? new DateInterval('P1Y');
         }
 
-        static::$refreshTokensExpireAt = $date;
         static::$refreshTokensExpireIn = Carbon::now()->diff($date);
 
         return new static;
@@ -354,7 +322,6 @@ class Passport
             return static::$personalAccessTokensExpireIn ?? new DateInterval('P1Y');
         }
 
-        static::$personalAccessTokensExpireAt = $date;
         static::$personalAccessTokensExpireIn = Carbon::now()->diff($date);
 
         return new static;
@@ -400,11 +367,9 @@ class Passport
      */
     public static function actingAs($user, $scopes = [], $guard = 'api')
     {
-        $token = Mockery::mock(self::tokenModel())->shouldIgnoreMissing(false);
+        $token = app(self::tokenModel());
 
-        foreach ($scopes as $scope) {
-            $token->shouldReceive('can')->with($scope)->andReturn(true);
-        }
+        $token->scopes = $scopes;
 
         $user->withAccessToken($token);
 
@@ -424,13 +389,14 @@ class Passport
      *
      * @param  \Laravel\Passport\Client  $client
      * @param  array  $scopes
+     * @param  string  $guard
      * @return \Laravel\Passport\Client
      */
-    public static function actingAsClient($client, $scopes = [])
+    public static function actingAsClient($client, $scopes = [], $guard = 'api')
     {
         $token = app(self::tokenModel());
 
-        $token->client_id = $client->id;
+        $token->client_id = $client->getKey();
         $token->setRelation('client', $client);
 
         $token->scopes = $scopes;
@@ -449,6 +415,10 @@ class Passport
         $mock->shouldReceive('find')->andReturn($token);
 
         app()->instance(TokenRepository::class, $mock);
+
+        app('auth')->guard($guard)->setClient($client);
+
+        app('auth')->shouldUse($guard);
 
         return $client;
     }
@@ -477,6 +447,17 @@ class Passport
         return static::$keyPath
             ? rtrim(static::$keyPath, '/\\').DIRECTORY_SEPARATOR.$file
             : storage_path($file);
+    }
+
+    /**
+     * Set the access token entity class name.
+     *
+     * @param  string  $accessTokenEntity
+     * @return void
+     */
+    public static function useAccessTokenEntity($accessTokenEntity)
+    {
+        static::$accessTokenEntity = $accessTokenEntity;
     }
 
     /**
@@ -694,34 +675,28 @@ class Passport
     }
 
     /**
-     * Set the device code model class name.
+     * Specify which view should be used as the authorization view.
      *
-     * @param string $deviceCodeModel
+     * @param  callable|string  $view
      * @return void
      */
-    public static function useDeviceCodeModel($deviceCodeModel)
+    public static function authorizationView($view)
     {
-        static::$deviceCodeModel = $deviceCodeModel;
+        app()->singleton(AuthorizationViewResponseContract::class, function ($app) use ($view) {
+            return new AuthorizationViewResponse($view);
+        });
     }
 
     /**
-     * Get the device code model class name.
+     * Configure Passport to not register its routes.
      *
-     * @return string
+     * @return static
      */
-    public static function deviceCodeModel()
+    public static function ignoreRoutes()
     {
-        return static::$deviceCodeModel;
-    }
+        static::$registersRoutes = false;
 
-    /**
-     * Get a new device code model instance.
-     *
-     * @return \Laravel\Passport\DeviceCode
-     */
-    public static function deviceCode()
-    {
-        return new static::$deviceCodeModel;
+        return new static;
     }
 
     /**
@@ -758,5 +733,61 @@ class Passport
         static::$unserializesCookies = false;
 
         return new static;
+    }
+
+    /**
+     * Instruct Passport to enable cookie encryption.
+     *
+     * @return static
+     */
+    public static function withCookieEncryption()
+    {
+        static::$decryptsCookies = true;
+
+        return new static;
+    }
+
+    /**
+     * Instruct Passport to disable cookie encryption.
+     *
+     * @return static
+     */
+    public static function withoutCookieEncryption()
+    {
+        static::$decryptsCookies = false;
+
+        return new static;
+    }
+
+    /**
+     *
+     * Set the device code model class name.
+     *
+     * @param  string  $deviceCodeModel
+     * @return void
+     */
+    public static function useDeviceCodeModel($deviceCodeModel)
+    {
+        static::$deviceCodeModel = $deviceCodeModel;
+    }
+
+    /**
+     * Get the device code model class name.
+     *
+     * @return string
+     */
+    public static function deviceCodeModel()
+    {
+        return static::$deviceCodeModel;
+    }
+
+    /**
+     * Get a new device code model instance.
+     *
+     * @return \Laravel\Passport\DeviceCode
+     */
+    public static function deviceCode()
+    {
+        return new static::$deviceCodeModel;
     }
 }

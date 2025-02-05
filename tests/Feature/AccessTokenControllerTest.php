@@ -49,7 +49,7 @@ class AccessTokenControllerTest extends PassportTestCase
         $this->assertArrayHasKey('expires_in', $decodedResponse);
         $this->assertArrayHasKey('access_token', $decodedResponse);
         $this->assertSame('Bearer', $decodedResponse['token_type']);
-        $expiresInSeconds = 31622400;
+        $expiresInSeconds = 31536000;
         $this->assertEqualsWithDelta($expiresInSeconds, $decodedResponse['expires_in'], 5);
 
         $token = $this->app->make(PersonalAccessTokenFactory::class)->findAccessToken($decodedResponse);
@@ -76,7 +76,7 @@ class AccessTokenControllerTest extends PassportTestCase
             [
                 'grant_type' => 'client_credentials',
                 'client_id' => $client->getKey(),
-                'client_secret' => $client->secret.'foo',
+                'client_secret' => $client->secret . 'foo',
             ]
         );
 
@@ -105,6 +105,8 @@ class AccessTokenControllerTest extends PassportTestCase
     public function testGettingAccessTokenWithPasswordGrant()
     {
         $this->withoutExceptionHandling();
+
+        Passport::enablePasswordGrant();
 
         $password = 'foobar123';
         $user = UserFactory::new()->create([
@@ -139,7 +141,7 @@ class AccessTokenControllerTest extends PassportTestCase
         $this->assertArrayHasKey('access_token', $decodedResponse);
         $this->assertArrayHasKey('refresh_token', $decodedResponse);
         $this->assertSame('Bearer', $decodedResponse['token_type']);
-        $expiresInSeconds = 31622400;
+        $expiresInSeconds = 31536000;
         $this->assertEqualsWithDelta($expiresInSeconds, $decodedResponse['expires_in'], 5);
 
         $token = $this->app->make(PersonalAccessTokenFactory::class)->findAccessToken($decodedResponse);
@@ -153,6 +155,8 @@ class AccessTokenControllerTest extends PassportTestCase
 
     public function testGettingAccessTokenWithPasswordGrantWithInvalidPassword()
     {
+        Passport::enablePasswordGrant();
+
         $password = 'foobar123';
         $user = UserFactory::new()->create([
             'email' => 'foo@gmail.com',
@@ -169,7 +173,7 @@ class AccessTokenControllerTest extends PassportTestCase
                 'client_id' => $client->getKey(),
                 'client_secret' => $client->secret,
                 'username' => $user->email,
-                'password' => $password.'foo',
+                'password' => $password . 'foo',
             ]
         );
 
@@ -196,6 +200,8 @@ class AccessTokenControllerTest extends PassportTestCase
 
     public function testGettingAccessTokenWithPasswordGrantWithInvalidClientSecret()
     {
+        Passport::enablePasswordGrant();
+
         $password = 'foobar123';
         $user = UserFactory::new()->create([
             'email' => 'foo@gmail.com',
@@ -210,7 +216,7 @@ class AccessTokenControllerTest extends PassportTestCase
             [
                 'grant_type' => 'password',
                 'client_id' => $client->getKey(),
-                'client_secret' => $client->secret.'foo',
+                'client_secret' => $client->secret . 'foo',
                 'username' => $user->email,
                 'password' => $password,
             ]
@@ -278,7 +284,7 @@ class IdTokenResponse extends \League\OAuth2\Server\ResponseTypes\BearerTokenRes
     protected $idToken;
 
     /**
-     * @param  string  $idToken
+     * @param string $idToken
      */
     public function __construct($idToken)
     {
@@ -286,7 +292,7 @@ class IdTokenResponse extends \League\OAuth2\Server\ResponseTypes\BearerTokenRes
     }
 
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     protected function getExtraParams(\League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken)
     {

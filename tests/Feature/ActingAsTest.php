@@ -38,7 +38,7 @@ class ActingAsTest extends PassportTestCase
 
         $router->get('/foo', function () {
             return 'bar';
-        })->middleware(CheckScopes::class.':admin,footest');
+        })->middleware(CheckScopes::class . ':admin,footest');
 
         Passport::actingAs(new User(), ['admin', 'footest']);
 
@@ -49,16 +49,16 @@ class ActingAsTest extends PassportTestCase
 
     public function testItCanGenerateDefinitionViaStaticMethod()
     {
-        $signature = (string) CheckScopes::using('admin');
+        $signature = (string)CheckScopes::using('admin');
         $this->assertSame('Laravel\Passport\Http\Middleware\CheckScopes:admin', $signature);
 
-        $signature = (string) CheckScopes::using('admin', 'footest');
+        $signature = (string)CheckScopes::using('admin', 'footest');
         $this->assertSame('Laravel\Passport\Http\Middleware\CheckScopes:admin,footest', $signature);
 
-        $signature = (string) CheckForAnyScope::using('admin');
+        $signature = (string)CheckForAnyScope::using('admin');
         $this->assertSame('Laravel\Passport\Http\Middleware\CheckForAnyScope:admin', $signature);
 
-        $signature = (string) CheckForAnyScope::using('admin', 'footest');
+        $signature = (string)CheckForAnyScope::using('admin', 'footest');
         $this->assertSame('Laravel\Passport\Http\Middleware\CheckForAnyScope:admin,footest', $signature);
     }
 
@@ -71,7 +71,7 @@ class ActingAsTest extends PassportTestCase
 
         $router->get('/foo', function () {
             return 'bar';
-        })->middleware(CheckForAnyScope::class.':admin,footest');
+        })->middleware(CheckForAnyScope::class . ':admin,footest');
 
         Passport::actingAs(new User(), ['footest']);
 
@@ -86,7 +86,7 @@ class ActingAsTest extends PassportTestCase
 
         $this->withoutExceptionHandling();
 
-        Route::middleware(CheckScopes::class.':foo:bar,baz:qux')->get('/foo', function () {
+        Route::middleware(CheckScopes::class . ':foo:bar,baz:qux')->get('/foo', function () {
             return 'bar';
         });
 
@@ -103,7 +103,7 @@ class ActingAsTest extends PassportTestCase
 
         $this->withoutExceptionHandling();
 
-        Route::middleware(CheckForAnyScope::class.':foo:baz,baz:qux')->get('/foo', function () {
+        Route::middleware(CheckForAnyScope::class . ':foo:baz,baz:qux')->get('/foo', function () {
             return 'bar';
         });
 

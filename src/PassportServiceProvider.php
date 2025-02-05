@@ -39,7 +39,6 @@ class PassportServiceProvider extends ServiceProvider
     {
         $this->registerRoutes();
         $this->registerResources();
-        $this->registerMigrations();
         $this->registerPublishing();
         $this->registerCommands();
 
@@ -94,16 +93,20 @@ class PassportServiceProvider extends ServiceProvider
     protected function registerPublishing()
     {
         if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__.'/../database/migrations' => database_path('migrations'),
+            $publishesMigrationsMethod = method_exists($this, 'publishesMigrations')
+                ? 'publishesMigrations'
+                : 'publishes';
+
+            $this->{$publishesMigrationsMethod}([
+                __DIR__ . '/../database/migrations' => database_path('migrations'),
             ], 'passport-migrations');
 
             $this->publishes([
-                __DIR__.'/../resources/views' => base_path('resources/views/vendor/passport'),
+                __DIR__ . '/../resources/views' => base_path('resources/views/vendor/passport'),
             ], 'passport-views');
 
             $this->publishes([
-                __DIR__.'/../config/passport.php' => config_path('passport.php'),
+                __DIR__ . '/../config/passport.php' => config_path('passport.php'),
             ], 'passport-config');
         }
     }
@@ -133,13 +136,13 @@ class PassportServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/passport.php', 'passport');
+        $this->mergeConfigFrom(__DIR__ . '/../config/passport.php', 'passport');
 
         Passport::setClientUuids($this->app->make(Config::class)->get('passport.client_uuids', false));
 
         $this->app->when(AuthorizationController::class)
-                ->needs(StatefulGuard::class)
-                ->give(fn () => Auth::guard(config('passport.guard', null)));
+            ->needs(StatefulGuard::class)
+            ->give(fn() => Auth::guard(config('passport.guard', null)));
 
         $this->registerAuthorizationServer();
         $this->registerClientRepository();
@@ -169,9 +172,11 @@ class PassportServiceProvider extends ServiceProvider
                     $this->makeRefreshTokenGrant(), Passport::tokensExpireIn()
                 );
 
-                $server->enableGrantType(
-                    $this->makePasswordGrant(), Passport::tokensExpireIn()
-                );
+                if (Passport::$passwordGrantEnabled) {
+                    $server->enableGrantType(
+                        $this->makePasswordGrant(), Passport::tokensExpireIn()
+                    );
+                }
 
                 $server->enableGrantType(
                     new PersonalAccessGrant, Passport::personalAccessTokensExpireIn()

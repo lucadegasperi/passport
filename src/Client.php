@@ -158,6 +158,22 @@ class Client extends Model
     }
 
     /**
+     * Determine if the client has the given grant type.
+     *
+     * @param string $grantType
+     * @return bool
+     */
+    public function hasGrantType($grantType)
+    {
+        if (!isset($this->attributes['grant_types']) || !is_array($this->grant_types)) {
+            return true;
+        }
+
+        return in_array($grantType, $this->grant_types);
+    }
+
+
+    /**
      * Determine whether the client has the given scope.
      *
      * @param  string  $scope
@@ -165,7 +181,7 @@ class Client extends Model
      */
     public function hasScope($scope)
     {
-        if (! is_array($this->scopes)) {
+        if (!isset($this->attributes['scopes']) || !is_array($this->scopes)) {
             return true;
         }
 
@@ -210,6 +226,16 @@ class Client extends Model
     public function getIncrementing()
     {
         return Passport::clientUuids() ? false : $this->incrementing;
+    }
+
+    /**
+     * Get the current connection name for the model.
+     *
+     * @return string|null
+     */
+    public function getConnectionName()
+    {
+        return $this->connection ?? config('passport.connection');
     }
 
     /**

@@ -68,6 +68,6 @@ class AuthCode extends Model
      */
     public function getConnectionName()
     {
-        return config('passport.storage.database.connection') ?? $this->connection;
+        return $this->connection ?? config('passport.connection');
     }
 }
